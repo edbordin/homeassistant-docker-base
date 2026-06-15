@@ -1,6 +1,7 @@
 name: Build base images
 
 on:
+  workflow_dispatch:
   push:
     branches: ["master"]
   pull_request:
@@ -10,7 +11,7 @@ on:
 
 env:
   REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}
-  ARCHITECTURES: '["amd64", "aarch64"]'
+  ARCHITECTURES: '["armv7", "armhf"]'
   ALPINE_LATEST: "3.23"
   DEBIAN_LATEST: "trixie"
   UBUNTU_LATEST: "24.04"
@@ -50,6 +51,7 @@ jobs:
             push=true
           else
             version="${GITHUB_SHA::7}"
+            push="${{ github.event_name != 'pull_request' }}"
           fi
 
           echo "architectures=${ARCHITECTURES}" >> "$GITHUB_OUTPUT"

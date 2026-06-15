@@ -98,7 +98,7 @@ jobs:
     steps:
       - name: Prepare multi-arch matrix
         id: prepare
-        uses: home-assistant/builder/actions/prepare-multi-arch-matrix@62a1597b84b3461abad9816d9cd92862a2b542c3 # 2026.03.2
+        uses: edbordin/homeassistant-builder/actions/prepare-multi-arch-matrix@restore-armv7-armhf-builds
         with:
           architectures: ${{ inputs.architectures }}
           image-name: ${{ inputs.image-name }}
@@ -122,7 +122,7 @@ jobs:
 
       - name: Build image
         id: build
-        uses: home-assistant/builder/actions/build-image@62a1597b84b3461abad9816d9cd92862a2b542c3 # 2026.03.2
+        uses: edbordin/homeassistant-builder/actions/build-image@restore-armv7-armhf-builds
         with:
           arch: ${{ matrix.arch }}
           build-args: ${{ inputs.build-args }}
@@ -144,6 +144,7 @@ jobs:
             io.hass.base.arch=${{ matrix.arch }}
             io.hass.base.version=${{ inputs.version }}
             ${{ inputs.labels }}
+          platform: ${{ matrix.platform }}
           push: ${{ inputs.push }}
           version: ${{ inputs.version }}
 
@@ -157,7 +158,7 @@ jobs:
       packages: write
     steps:
       - name: Publish multi-arch manifest
-        uses: home-assistant/builder/actions/publish-multi-arch-manifest@62a1597b84b3461abad9816d9cd92862a2b542c3 # 2026.03.2
+        uses: edbordin/homeassistant-builder/actions/publish-multi-arch-manifest@restore-armv7-armhf-builds
         with:
           architectures: ${{ inputs.architectures }}
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
