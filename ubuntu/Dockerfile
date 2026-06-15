@@ -21,6 +21,7 @@ ARG TEMPIO_VERSION=2024.11.2
 
 # Sanity check for later steps
 ARG TARGETARCH
+ARG TARGETVARIANT
 RUN \
     if [ -z "${TARGETARCH}" ]; then \
         echo "TARGETARCH is not set, please use Docker BuildKit for the build." && exit 1; \
@@ -67,8 +68,20 @@ RUN \
             S6_OVERLAY_ARCH="${S6_OVERLAY_ARCH:-aarch64}" \
             TEMPIO_ARCH="${TEMPIO_ARCH:-aarch64}" \
             ;; \
+        arm) \
+            case "${TARGETVARIANT}" in \
+                v6) \
+                    S6_OVERLAY_ARCH="${S6_OVERLAY_ARCH:-armhf}" \
+                    TEMPIO_ARCH="${TEMPIO_ARCH:-armhf}" \
+                    ;; \
+                v7) \
+                    S6_OVERLAY_ARCH="${S6_OVERLAY_ARCH:-arm}" \
+                    TEMPIO_ARCH="${TEMPIO_ARCH:-armv7}" \
+                    ;; \
+            esac \
+            ;; \
     esac \
-    && echo "Selected from TARGETARCH=${TARGETARCH} arch-specific" \
+    && echo "Selected from TARGETARCH=${TARGETARCH} TARGETVARIANT=${TARGETVARIANT} arch-specific" \
         " S6_OVERLAY_ARCH=${S6_OVERLAY_ARCH:=${TARGETARCH}}" \
         " TEMPIO_ARCH=${TEMPIO_ARCH:=${TARGETARCH}}" \
     && curl -L -f -s "https://github.com/${S6_OVERLAY_REPOSITORY}/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}.tar.xz" \
