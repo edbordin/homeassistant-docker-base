@@ -1,0 +1,99 @@
+name: Build Debian base images
+
+on:
+  workflow_dispatch:
+
+env:
+  REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}
+  ARCHITECTURES: '["armv7", "armhf"]'
+  DEBIAN_LATEST: "trixie"
+  PYTHON_LATEST: "3.14"
+
+jobs:
+  init:
+    name: Initialize Debian build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      architectures: ${{ steps.meta.outputs.architectures }}
+      version: ${{ steps.meta.outputs.version }}
+      debian_latest: ${{ steps.meta.outputs.debian_latest }}
+      python_latest: ${{ steps.meta.outputs.python_latest }}
+      push: ${{ steps.meta.outputs.push }}
+    steps:
+      - name: Set build metadata
+        id: meta
+        shell: bash
+        env:
+          ARCHITECTURES: ${{ env.ARCHITECTURES }}
+          DEBIAN_LATEST: ${{ env.DEBIAN_LATEST }}
+          PYTHON_LATEST: ${{ env.PYTHON_LATEST }}
+        run: |
+          echo "architectures=${ARCHITECTURES}" >> "$GITHUB_OUTPUT"
+          echo "version=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "push=true" >> "$GITHUB_OUTPUT"
+          echo "debian_latest=${DEBIAN_LATEST}" >> "$GITHUB_OUTPUT"
+          echo "python_latest=${PYTHON_LATEST}" >> "$GITHUB_OUTPUT"
+
+  build_debian:
+    name: Debian ${{ matrix.debian_version }}
+    needs: init
+    strategy:
+      fail-fast: false
+      matrix:
+        debian_version: ["trixie"]
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    uses: ./.github/workflows/build-base-image.yml
+    with:
+      architectures: ${{ needs.init.outputs.architectures }}
+      build-args: |
+        DEBIAN_VERSION=${{ matrix.debian_version }}
+      cache-gha-scope: debian-${{ matrix.debian_version }}
+      cache-image-tag: ${{ matrix.debian_version }}
+      context: debian
+      image-name: base-debian
+      image-tags: |
+        ${{ matrix.debian_version }}
+        ${{ matrix.debian_version }}-${{ needs.init.outputs.version }}
+        ${{ matrix.debian_version == needs.init.outputs.debian_latest && 'latest' || '' }}
+      labels: |
+        io.hass.base.image=debian:${{ matrix.debian_version }}-slim
+      push: ${{ needs.init.outputs.push == 'true' }}
+      version: ${{ needs.init.outputs.version }}
+
+  build_python_debian:
+    name: Python ${{ matrix.python_version }} (Debian ${{ matrix.debian_version }})
+    needs: [init, build_debian]
+    strategy:
+      fail-fast: false
+      matrix:
+        debian_version: ["trixie"]
+        python_version: ["3.14"]
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    uses: ./.github/workflows/build-base-image.yml
+    with:
+      architectures: ${{ needs.init.outputs.architectures }}
+      build-args: |
+        BASE_IMAGE=ghcr.io/${{ github.repository_owner }}/base-debian
+        BASE_VERSION=${{ matrix.debian_version }}
+      cache-gha-scope: python-${{ matrix.python_version }}-debian${{ matrix.debian_version }}
+      cache-image-tag: ${{ matrix.python_version }}-debian${{ matrix.debian_version }}
+      context: python/${{ matrix.python_version }}
+      cosign-base-identity: "https://github.com/${{ github.repository }}/.*"
+      cosign-base-verify: ghcr.io/${{ github.repository_owner }}/base-debian:${{ matrix.debian_version }}
+      file: Dockerfile.debian
+      image-name: base-python
+      image-tags: |
+        ${{ matrix.python_version }}-debian${{ matrix.debian_version }}
+        ${{ matrix.python_version }}-debian${{ matrix.debian_version }}-${{ needs.init.outputs.version }}
+      labels: |
+        io.hass.base.image=ghcr.io/${{ github.repository_owner }}/base-debian:${{ matrix.debian_version }}
+      push: ${{ needs.init.outputs.push == 'true' }}
+      version: ${{ needs.init.outputs.version }}
