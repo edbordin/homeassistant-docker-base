@@ -7,7 +7,7 @@ env:
   REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}
   ARCHITECTURES: '["armv7", "armhf"]'
   DEBIAN_LATEST: "trixie"
-  PYTHON_LATEST: "3.14"
+  PYTHON_LATEST: "3.13"
 
 jobs:
   init:
@@ -72,7 +72,7 @@ jobs:
       fail-fast: false
       matrix:
         debian_version: ["trixie"]
-        python_version: ["3.14"]
+        python_version: ["3.13"]
     permissions:
       contents: read
       id-token: write

@@ -1,0 +1,116 @@
+ARG BASE_IMAGE=ghcr.io/home-assistant/base-debian
+ARG BASE_VERSION=trixie
+ARG BUILD_FROM=${BASE_IMAGE}:${BASE_VERSION}
+
+####################
+# Get Python sources
+####################
+
+FROM ${BUILD_FROM} AS python-source
+
+ARG PYTHON_VERSION=3.13.14
+
+SHELL ["/bin/bash", "-o", "pipefail", "-x", "-c"]
+
+WORKDIR /tmp/python-fetch
+
+ADD "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz" /tmp/python-fetch/python.tar.xz
+
+RUN \
+    mkdir -p /usr/src/python \
+    && tar -xJC /usr/src/python --strip-components=1 -f python.tar.xz \
+    && rm -rf /tmp/python-fetch
+
+##############
+# Python build
+##############
+
+FROM ${BUILD_FROM} AS build
+
+ENV PATH=/usr/local/bin:$PATH
+
+SHELL ["/bin/bash", "-o", "pipefail", "-x", "-c"]
+
+RUN \
+    --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        dpkg-dev \
+        libbluetooth-dev \
+        libbz2-dev \
+        libexpat1-dev \
+        libffi-dev \
+        libgdbm-dev \
+        liblzma-dev \
+        libncursesw5-dev \
+        libnsl-dev \
+        libreadline-dev \
+        libsqlite3-dev \
+        libssl-dev \
+        libtirpc-dev \
+        make \
+        patch \
+        pax-utils \
+        tk-dev \
+        uuid-dev \
+        xz-utils \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --link --from=python-source /usr/src/python /usr/src/python
+
+RUN \
+    --mount=type=bind,source=./patches,target=/usr/src/patches \
+    for i in /usr/src/patches/gh-*.patch; do \
+        patch -d /usr/src/python -p 1 < "${i}"; \
+    done \
+    && cd /usr/src/python \
+    && gnu_arch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
+    && ./configure \
+        --build="${gnu_arch}" \
+        --enable-loadable-sqlite-extensions \
+        --enable-optimizations \
+        --enable-option-checking=fatal \
+        --enable-shared \
+        --with-lto \
+        --with-system-expat \
+        --with-ensurepip=install \
+        --without-static-libpython \
+    && make -j "$(nproc)" \
+        LDFLAGS="-Wl,--strip-all" \
+        CFLAGS="-fno-semantic-interposition -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free" \
+    && make install \
+    && ldconfig \
+    && rm -rf /usr/src/python
+
+ARG PIP_VERSION=26.0.1
+
+RUN \
+    python -m pip install --no-cache-dir --upgrade pip=="${PIP_VERSION}" \
+    && cd /usr/local/bin \
+    && ln -sf idle3 idle \
+    && ln -sf pydoc3 pydoc \
+    && ln -sf python3 python \
+    && ln -sf python3-config python-config \
+    && find /usr/local -depth \
+        \( \
+            -type d -a \( -name test -o -name tests \) \
+        \) -exec rm -rf '{}' +
+
+#########################
+# Final flattened image #
+#########################
+
+FROM ${BUILD_FROM}
+
+COPY --from=build / /
+
+ENV PATH=/usr/local/bin:$PATH
+
+RUN ldconfig
+
+LABEL \
+    io.hass.type="base" \
+    io.hass.base.name="python-debian"
