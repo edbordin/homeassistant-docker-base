@@ -88,7 +88,7 @@ jobs:
       context: python/${{ matrix.python_version }}
       cosign-base-identity: "https://github.com/${{ github.repository }}/.*"
       cosign-base-verify: ghcr.io/${{ github.repository_owner }}/base-debian:${{ matrix.debian_version }}
-      file: Dockerfile.debian
+      file: python/${{ matrix.python_version }}/Dockerfile.debian
       image-name: base-python
       image-tags: |
         ${{ matrix.python_version }}-debian${{ matrix.debian_version }}
