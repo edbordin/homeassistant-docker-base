@@ -88,12 +88,12 @@ RUN \
 ARG PIP_VERSION=26.0.1
 
 RUN \
-    python -m pip install --no-cache-dir --upgrade pip=="${PIP_VERSION}" \
-    && cd /usr/local/bin \
+    cd /usr/local/bin \
     && ln -sf idle3 idle \
     && ln -sf pydoc3 pydoc \
     && ln -sf python3 python \
     && ln -sf python3-config python-config \
+    && python3 -m pip install --no-cache-dir --upgrade pip=="${PIP_VERSION}" \
     && find /usr/local -depth \
         \( \
             -type d -a \( -name test -o -name tests \) \
